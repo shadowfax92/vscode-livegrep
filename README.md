@@ -1,9 +1,9 @@
 # vscode-livegrep
-Ripgrep in the command palette
+A ripgrep extension for Visual Studio Code to mimic Telescope in Neovim, in the command palette
 
 ## Features
 
-A ripgrep extension for Visual Studio Code to mimic Telescope in Neovim
+- Use ripgrep as normal
 
 ![screenshot](https://github.com/abayomi185/vscode-livegrep/blob/main/docs/animation.gif?raw=true)
 
