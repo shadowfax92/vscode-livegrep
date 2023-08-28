@@ -2,7 +2,35 @@
   "name": "livegrep",
   "displayName": "Live Grep",
   "description": "Ripgrep in the command palette",
-  "repository": "https://github.com/abayomi185/vscode-livegrep",
+  "license": "SEE LICENSE IN LICENSE",
+  "publisher": "YomiTosh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abayomi185/vscode-livegrep"
+  },
+  "icon": "docs/icon.png",
+  "galleryBanner": {
+    "color": "#4D3C77",
+    "theme": "dark"
+  },
+  "author": {
+    "name": "Yomi"
+  },
+  "homepage": "https://github.com/abayomi185/vscode-livegrep/blob/main/README.md",
+  "keywords": [
+    "ripgrep",
+    "rg",
+    "livegrep",
+    "grep",
+    "search",
+    "find",
+    "fzf",
+    "fuzzy",
+    "fuzzy search",
+    "fuzzy find",
+    "fuzzy grep"
+  ],
+  "pricing": "Free",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.81.0"
