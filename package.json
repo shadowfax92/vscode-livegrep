@@ -1,7 +1,8 @@
 {
   "name": "livegrep",
-  "displayName": "LiveGrep",
+  "displayName": "Live Grep",
   "description": "Ripgrep in the command palette",
+  "repository": "https://github.com/abayomi185/vscode-livegrep",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.81.0"
@@ -16,6 +17,10 @@
       {
         "command": "livegrep.search",
         "title": "LiveGrep: Search"
+      },
+      {
+        "command": "livegrep.search",
+        "title": "ripgrep"
       }
     ]
   },
