@@ -9,13 +9,13 @@ A ripgrep extension for Visual Studio Code to mimic Telescope in Neovim, in the 
 
 ## Release Notes
 
-### 0.3.0
+### 0.3
 - Bundle ripgrep binary for windows, linux and macOS in extension
 
-### 0.2.0
+### 0.2
 - Dynamically changing list when typing search term
 - Search term in quotes for exact match
 - History list to view 10 previous search terms and search result
   
-### 0.1.0
+### 0.1
 - Initial release
