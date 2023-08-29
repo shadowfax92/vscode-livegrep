@@ -49,8 +49,7 @@
     ]
   },
   "files": [
-    "src/bin/**",
-    "out/**"
+    "src/bin/**/*"
   ],
   "scripts": {
     "vscode:prepublish": "yarn run compile",

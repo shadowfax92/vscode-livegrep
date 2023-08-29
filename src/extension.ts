@@ -12,17 +12,18 @@ const projectRoot = workspaceFolders[0] || ".";
 
 const getRgPath = (extensionPath: string) => {
   const binVersion = "13_0_0";
+  const basePath = `${extensionPath}/bin/${binVersion}`;
   switch (platform) {
     case "darwin":
-      return `${extensionPath}/src/bin/${binVersion}/${platform}/rg`;
+      return `${basePath}/${platform}/rg`;
     case "linux":
       if (arch === "arm" || arch === "arm64") {
-        return `${extensionPath}/src/bin/${binVersion}/${platform}/rg_arm`;
+        return `${basePath}/${platform}/rg_arm`;
       } else if (arch === "x64") {
-        return `${extensionPath}/src/bin/${binVersion}/${platform}/rg_x86_64`;
+        return `${basePath}/${platform}/rg_x86_64`;
       }
     case "win32":
-      return `${extensionPath}/src/bin/${binVersion}/${platform}/rg.exe`;
+      return `${basePath}/${platform}/rg.exe`;
     default:
       return "rg";
   }
