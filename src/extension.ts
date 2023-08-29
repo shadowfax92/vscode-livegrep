@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as cp from "child_process";
-import { rgPath } from "@vscode/ripgrep";
+import { platform, arch } from "node:process";
 import { quote } from "shell-quote";
 
 const MAX_DESC_LENGTH = 1000;
@@ -9,6 +9,24 @@ const MAX_BUF_SIZE = 200000 * 1024;
 const workspaceFolders: string[] =
   vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) || [];
 const projectRoot = workspaceFolders[0] || ".";
+
+const getRgPath = (extensionPath: string) => {
+  const binVersion = "13_0_0";
+  switch (platform) {
+    case "darwin":
+      return `${extensionPath}/src/bin/${binVersion}/${platform}/rg`;
+    case "linux":
+      if (arch === "arm" || arch === "arm64") {
+        return `${extensionPath}/src/bin/${binVersion}/${platform}/rg_arm`;
+      } else if (arch === "x64") {
+        return `${extensionPath}/src/bin/${binVersion}/${platform}/rg_x86_64`;
+      }
+    case "win32":
+      return `${extensionPath}/src/bin/${binVersion}/${platform}/rg.exe`;
+    default:
+      return "rg";
+  }
+};
 
 interface QuickPickItemWithLine extends vscode.QuickPickItem {
   num: number;
@@ -63,6 +81,8 @@ function fetchItems(
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  const rgPath = getRgPath(context.extensionUri.fsPath);
+
   let query: string[];
   const scrollBack: QuickPickItemWithLine[] = [];
 
