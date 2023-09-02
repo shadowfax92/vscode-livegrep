@@ -4,6 +4,7 @@ A ripgrep extension for Visual Studio Code to mimic Telescope in Neovim, in the 
 ## Features
 
 - Use ripgrep as normal
+- Bind livegrep to a keyboard shortcut using the vscode shortcut command `livegrep.search`
 
 ![screenshot](https://github.com/abayomi185/vscode-livegrep/blob/main/docs/animation.gif?raw=true)
 
