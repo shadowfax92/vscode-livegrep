@@ -209,7 +209,6 @@ export function activate(context: vscode.ExtensionContext) {
         if ((await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File) {
           pwdString = path.dirname(pwdString);
         }
-        vscode.window.showInformationMessage(pwdString);
         searchDirs([pwdString]);
       }
     );
