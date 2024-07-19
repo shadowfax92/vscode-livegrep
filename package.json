@@ -52,9 +52,6 @@
       }
     ]
   },
-  "files": [
-    "src/bin/**/*"
-  ],
   "scripts": {
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",
