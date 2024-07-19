@@ -89,11 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
   let quickPickValue: string;
 
   const scrollBack: QuickPickItemWithLine[] = [];
-  async function searchDirs(dirs: string[] | undefined) {
-    if (!dirs) {
-      // Fail gracefully if not in a directory or a workspace
-      return;
-    }
+  async function searchDirs(dirs: string[]) {
     const quickPick = vscode.window.createQuickPick();
     quickPick.placeholder = "Please enter a search term";
     quickPick.matchOnDescription = true;
@@ -192,6 +188,10 @@ export function activate(context: vscode.ExtensionContext) {
     const disposableWorkspace = vscode.commands.registerCommand(
       "livegrep.search",
       async () => {
+        if (!workspaceFolders) {
+          vscode.window.showErrorMessage("Open a workspace or a folder for Livegrep: Search Workspace to work");
+          return;
+        }
         searchDirs(workspaceFolders);
       }
     );
