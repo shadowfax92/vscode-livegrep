@@ -10,6 +10,11 @@ A ripgrep extension for Visual Studio Code to mimic Telescope in Neovim, in the 
 
 ## Release Notes
 
+### 0.4
+- Make workspaces with multiple folders supported
+- Add livegrep.searchCurrent to search the current folder
+- Fix bugs
+
 ### 0.3
 - Bundle ripgrep binary for windows, linux and macOS in extension
 
