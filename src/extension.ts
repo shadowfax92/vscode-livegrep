@@ -136,7 +136,12 @@ export function activate(context: vscode.ExtensionContext) {
           return result;
         })
         .filter((result) => result.status === "fulfilled")
-        .map((result) => result.value)).flat();
+        .map((result) => {
+          if (result.status === "fulfilled") {
+            return result.value;
+          }
+          return [];
+        })).flat();
     });
 
     quickPick.onDidAccept(async () => {
