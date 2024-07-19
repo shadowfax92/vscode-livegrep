@@ -2,13 +2,13 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import { platform, arch } from "node:process";
 import { quote } from "shell-quote";
+import { prototype } from "mocha";
 
 const MAX_DESC_LENGTH = 1000;
 const MAX_BUF_SIZE = 200000 * 1024;
 
-const workspaceFolders: string[] =
-  vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) || [];
-const projectRoot = workspaceFolders[0] || ".";
+const workspaceFolders: string[] | undefined =
+  vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath);
 
 const getRgPath = (extensionPath: string) => {
   const binVersion = "13_0_0";
@@ -35,22 +35,24 @@ interface QuickPickItemWithLine extends vscode.QuickPickItem {
 
 function fetchItems(
   command: string,
-  projectRoot: string
+  dir: string
 ): Promise<QuickPickItemWithLine[]> {
   return new Promise((resolve, reject) => {
+    if (dir === '') {
+      reject(new Error("Can't parse dir ''"));
+    }
     cp.exec(
       command,
-      { cwd: projectRoot, maxBuffer: MAX_BUF_SIZE },
+      { cwd: dir, maxBuffer: MAX_BUF_SIZE },
       (err, stdout, stderr) => {
         if (stderr) {
-          vscode.window.showErrorMessage(stderr);
-          return resolve([]);
+          reject(new Error(stderr));
         }
         const lines = stdout.split(/\n/).filter((l) => l !== "");
         if (!lines.length) {
-          return resolve([]);
+          resolve([]);
         }
-        return resolve(
+        resolve(
           lines
             .map((line) => {
               const [fullPath, num, ...desc] = line.split(":");
@@ -71,7 +73,7 @@ function fetchItems(
               return {
                 label: `${path[path.length - 1]} : ${num}`,
                 description,
-                detail: fullPath,
+                detail: dir + fullPath.substring(1, fullPath.length),
                 num,
               };
             })
@@ -83,14 +85,18 @@ function fetchItems(
 
 export function activate(context: vscode.ExtensionContext) {
   const rgPath = getRgPath(context.extensionUri.fsPath);
+  let quickPickValue: string;
 
-  let query: string[];
   const scrollBack: QuickPickItemWithLine[] = [];
 
   (async () => {
     const disposable = vscode.commands.registerCommand(
       "livegrep.search",
       async () => {
+        if (!workspaceFolders) {
+          // Fail gracefully if not in a directory or a workspace
+          return;
+        }
         const quickPick = vscode.window.createQuickPick();
         quickPick.placeholder = "Please enter a search term";
         quickPick.matchOnDescription = true;
@@ -100,11 +106,13 @@ export function activate(context: vscode.ExtensionContext) {
 
         quickPick.items = scrollBack;
 
+
         quickPick.onDidChangeValue(async (value) => {
+          quickPickValue = value;
           if (!value || value === "") {
             return;
           }
-          query = value.split(/\s/).reduce((acc, curr, index) => {
+          let query = value.split(/\s/).reduce((acc, curr, index) => {
             if (
               index === 0 ||
               isOption(curr) ||
@@ -120,43 +128,47 @@ export function activate(context: vscode.ExtensionContext) {
             acc[acc.length - 1] = acc[acc.length - 1] + ` ${curr}`;
             return acc;
           }, [] as string[]);
-          quickPick.items = await fetchItems(
-            quote([rgPath, "-n", ...query, "."]),
-            projectRoot
-          );
+
+          const quoteSearch = quote([rgPath, "-n", ...query, "."]);
+          quickPick.items = ((await Promise.allSettled(workspaceFolders
+            .map((dir) => fetchItems(quoteSearch, dir))))
+            .map((result) => {
+              if (result.status === "rejected") {
+                vscode.window.showErrorMessage(result.reason);
+              }
+              return result;
+            })
+            .filter((result) => result.status === "fulfilled")
+            .map((result) => result.value)).flat();
         });
 
         quickPick.onDidAccept(async () => {
-          // Create scrollback item when user makes selection
-          const scrollBackItem = {
-            label: query.join(" "),
-            description: "History",
-            num: scrollBack.length + 1,
-          };
-
-          // Scrollback history is limited to 10 items
-          if (scrollBack.length > 10) {
-            // remove oldest item
-            scrollBack.shift();
-          }
-          scrollBack.unshift(scrollBackItem);
 
           const item = quickPick.selectedItems[0] as QuickPickItemWithLine;
           if (!item) {
             return;
           }
+
           if (item.description === "History") {
-            // Add ability to select history item to replace current search
-            quickPick.items = await fetchItems(
-              quote([rgPath, "-n", ...item.label.split(/\s/), "."]),
-              projectRoot
-            );
+            quickPick.value = item.label;
             return;
           }
+
+          // Create scrollback item to store history
+          const scrollBackItem = {
+            label: quickPickValue,
+            description: "History",
+            num: 0,
+          };
+          // Scrollback history is limited to 20 items
+          if (scrollBack.length > 20) {
+            // Remove oldest item
+            scrollBack.pop();
+          }
+          scrollBack.unshift(scrollBackItem);
+
           const { detail, num } = item;
-          const doc = await vscode.workspace.openTextDocument(
-            projectRoot + "/" + detail
-          );
+          const doc = await vscode.workspace.openTextDocument("" + detail);
           await vscode.window.showTextDocument(doc);
           if (!vscode.window.activeTextEditor) {
             vscode.window.showErrorMessage("No active editor.");
@@ -169,15 +181,15 @@ export function activate(context: vscode.ExtensionContext) {
             0
           );
           vscode.commands.executeCommand("cursorUp");
-          context.subscriptions.push(disposable);
         });
 
         quickPick.show();
       }
     );
+    context.subscriptions.push(disposable);
   })().catch((error) => {
     vscode.window.showErrorMessage(error);
   });
 }
 
-export function deactivate() {}
+export function deactivate() { }
