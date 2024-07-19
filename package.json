@@ -44,7 +44,11 @@
     "commands": [
       {
         "command": "livegrep.search",
-        "title": "LiveGrep: Search"
+        "title": "LiveGrep: Search Workspace"
+      },
+      {
+        "command": "livegrep.searchCurrent",
+        "title": "LiveGrep: Search Current Folder"
       }
     ]
   },
