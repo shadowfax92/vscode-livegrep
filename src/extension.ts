@@ -3,7 +3,7 @@ import * as cp from "child_process";
 import { platform, arch } from "node:process";
 import { quote } from "shell-quote";
 import { prototype } from "mocha";
-import * as path from 'path';
+import * as path from "path";
 
 const MAX_DESC_LENGTH = 1000;
 const MAX_BUF_SIZE = 200000 * 1024;
@@ -36,10 +36,10 @@ interface QuickPickItemWithLine extends vscode.QuickPickItem {
 
 function fetchItems(
   command: string,
-  dir: string
+  dir: string,
 ): Promise<QuickPickItemWithLine[]> {
   return new Promise((resolve, reject) => {
-    if (dir === '') {
+    if (dir === "") {
       reject(new Error("Can't parse dir ''"));
     }
     cp.exec(
@@ -67,7 +67,7 @@ function fetchItems(
             })
             .filter(
               ({ description, num }) =>
-                description.length < MAX_DESC_LENGTH && !!num
+                description.length < MAX_DESC_LENGTH && !!num,
             )
             .map(({ fullPath, num, line, description }) => {
               const path = fullPath.split("/");
@@ -77,9 +77,9 @@ function fetchItems(
                 detail: dir + fullPath.substring(1, fullPath.length),
                 num,
               };
-            })
+            }),
         );
-      }
+      },
     );
   });
 }
@@ -99,18 +99,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     quickPick.items = scrollBack;
 
-
     quickPick.onDidChangeValue(async (value) => {
       quickPickValue = value;
       if (!value || value === "") {
         return;
       }
       let query = value.split(/\s/).reduce((acc, curr, index) => {
-        if (
-          index === 0 ||
-          isOption(curr) ||
-          isOption(acc[acc.length - 1])
-        ) {
+        if (index === 0 || isOption(curr) || isOption(acc[acc.length - 1])) {
           if (!isWordQuoted(curr) && !isOption(curr)) {
             acc.push("-i", curr); // add case insensitive flag
             return acc;
@@ -123,8 +118,11 @@ export function activate(context: vscode.ExtensionContext) {
       }, [] as string[]);
 
       const quoteSearch = quote([rgPath, "-n", ...query, "."]);
-      quickPick.items = ((await Promise.allSettled(dirs
-        .map((dir) => fetchItems(quoteSearch, dir))))
+      quickPick.items = (
+        await Promise.allSettled(
+          dirs.map((dir) => fetchItems(quoteSearch, dir)),
+        )
+      )
         .map((result) => {
           if (result.status === "rejected") {
             vscode.window.showErrorMessage(result.reason);
@@ -137,11 +135,11 @@ export function activate(context: vscode.ExtensionContext) {
             return result.value;
           }
           return [];
-        })).flat();
+        })
+        .flat();
     });
 
     quickPick.onDidAccept(async () => {
-
       const item = quickPick.selectedItems[0] as QuickPickItemWithLine;
       if (!item) {
         return;
@@ -176,7 +174,7 @@ export function activate(context: vscode.ExtensionContext) {
         ~~num,
         0,
         ~~num,
-        0
+        0,
       );
       vscode.commands.executeCommand("cursorUp");
     });
@@ -189,11 +187,13 @@ export function activate(context: vscode.ExtensionContext) {
       "livegrep.search",
       async () => {
         if (!workspaceFolders) {
-          vscode.window.showErrorMessage("Open a workspace or a folder for Livegrep: Search Workspace to work");
+          vscode.window.showErrorMessage(
+            "Open a workspace or a folder for Livegrep: Search Workspace to work",
+          );
           return;
         }
         searchDirs(workspaceFolders);
-      }
+      },
     );
     context.subscriptions.push(disposableWorkspace);
 
@@ -204,13 +204,17 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.window.showErrorMessage("No active editor.");
           return;
         }
-        let pwd = vscode.Uri.parse(vscode.window.activeTextEditor.document.uri.path);
+        let pwd = vscode.Uri.parse(
+          vscode.window.activeTextEditor.document.uri.path,
+        );
         let pwdString = pwd.path;
-        if ((await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File) {
+        if (
+          (await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File
+        ) {
           pwdString = path.dirname(pwdString);
         }
         searchDirs([pwdString]);
-      }
+      },
     );
     context.subscriptions.push(disposableCurrent);
   })().catch((error) => {
@@ -218,4 +222,4 @@ export function activate(context: vscode.ExtensionContext) {
   });
 }
 
-export function deactivate() { }
+export function deactivate() {}
