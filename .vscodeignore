@@ -10,4 +10,3 @@ vsc-extension-quickstart.md
 **/*.ts
 .direnv
 .env
-node_modules
