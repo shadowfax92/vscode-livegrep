@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as cp from "child_process";
 import { platform, arch } from "node:process";
 import { quote } from "shell-quote";
-import { prototype } from "mocha";
 import * as path from "path";
 
 const MAX_DESC_LENGTH = 1000;
@@ -36,7 +35,7 @@ interface QuickPickItemWithLine extends vscode.QuickPickItem {
 
 function fetchItems(
   command: string,
-  dir: string,
+  dir: string
 ): Promise<QuickPickItemWithLine[]> {
   return new Promise((resolve, reject) => {
     if (dir === "") {
@@ -67,7 +66,7 @@ function fetchItems(
             })
             .filter(
               ({ description, num }) =>
-                description.length < MAX_DESC_LENGTH && !!num,
+                description.length < MAX_DESC_LENGTH && !!num
             )
             .map(({ fullPath, num, line, description }) => {
               const path = fullPath.split("/");
@@ -77,9 +76,9 @@ function fetchItems(
                 detail: dir + fullPath.substring(1, fullPath.length),
                 num,
               };
-            }),
+            })
         );
-      },
+      }
     );
   });
 }
@@ -120,7 +119,7 @@ export function activate(context: vscode.ExtensionContext) {
       const quoteSearch = quote([rgPath, "-n", ...query, "."]);
       quickPick.items = (
         await Promise.allSettled(
-          dirs.map((dir) => fetchItems(quoteSearch, dir)),
+          dirs.map((dir) => fetchItems(quoteSearch, dir))
         )
       )
         .map((result) => {
@@ -174,7 +173,7 @@ export function activate(context: vscode.ExtensionContext) {
         ~~num,
         0,
         ~~num,
-        0,
+        0
       );
       vscode.commands.executeCommand("cursorUp");
     });
@@ -188,12 +187,12 @@ export function activate(context: vscode.ExtensionContext) {
       async () => {
         if (!workspaceFolders) {
           vscode.window.showErrorMessage(
-            "Open a workspace or a folder for Livegrep: Search Workspace to work",
+            "Open a workspace or a folder for Livegrep: Search Workspace to work"
           );
           return;
         }
         searchDirs(workspaceFolders);
-      },
+      }
     );
     context.subscriptions.push(disposableWorkspace);
 
@@ -205,7 +204,7 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
         let pwd = vscode.Uri.parse(
-          vscode.window.activeTextEditor.document.uri.path,
+          vscode.window.activeTextEditor.document.uri.path
         );
         let pwdString = pwd.path;
         if (
@@ -214,7 +213,7 @@ export function activate(context: vscode.ExtensionContext) {
           pwdString = path.dirname(pwdString);
         }
         searchDirs([pwdString]);
-      },
+      }
     );
     context.subscriptions.push(disposableCurrent);
   })().catch((error) => {
