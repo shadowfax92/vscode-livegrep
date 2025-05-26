@@ -216,6 +216,40 @@ export function activate(context: vscode.ExtensionContext) {
       }
     );
     context.subscriptions.push(disposableCurrent);
+
+    const searchLevel = async (level: number) => {
+      if (!vscode.window.activeTextEditor) {
+        vscode.window.showErrorMessage("No active editor.");
+        return;
+      }
+      let pwd = vscode.Uri.parse(
+        vscode.window.activeTextEditor.document.uri.path
+      );
+      let pwdString = pwd.path;
+      if (
+        (await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File
+      ) {
+        pwdString = path.dirname(pwdString);
+      }
+      
+      // Go up 'level' number of directories
+      for (let i = 0; i < level; i++) {
+        pwdString = path.dirname(pwdString);
+      }
+      
+      searchDirs([pwdString]);
+    };
+
+    // Register commands for different levels
+    for (let level = 0; level <= 5; level++) {
+      const disposableLevel = vscode.commands.registerCommand(
+        `livegrep.searchLevel_${level}`,
+        async () => {
+          await searchLevel(level);
+        }
+      );
+      context.subscriptions.push(disposableLevel);
+    }
   })().catch((error) => {
     vscode.window.showErrorMessage(error);
   });
