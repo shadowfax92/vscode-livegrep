@@ -33,6 +33,16 @@ interface QuickPickItemWithLine extends vscode.QuickPickItem {
   num: number;
 }
 
+function truncatePath(pwdString: string, maxLength: number = 30): string {
+  if (pwdString.length <= maxLength) {
+    return pwdString;
+  }
+  
+  // Take the last maxLength characters and prepend with "..."
+  const truncated = pwdString.slice(-maxLength);
+  return `...${truncated}`;
+}
+
 function fetchItems(
   command: string,
   dir: string
@@ -88,10 +98,19 @@ export function activate(context: vscode.ExtensionContext) {
   let quickPickValue: string;
 
   const scrollBack: QuickPickItemWithLine[] = [];
-  async function searchDirs(dirs: string[]) {
+  async function searchDirs(dirs: string[], title?: string) {
     const quickPick = vscode.window.createQuickPick();
     quickPick.placeholder = "Please enter a search term";
     quickPick.matchOnDescription = true;
+    
+    // Set title to show which directory is being searched
+    if (title) {
+      quickPick.title = title;
+    } else if (dirs.length === 1) {
+      quickPick.title = `Searching in: ${dirs[0]}`;
+    } else {
+      quickPick.title = `Searching in ${dirs.length} directories`;
+    }
 
     const isOption = (s: string) => /^--?[a-z]+/.test(s);
     const isWordQuoted = (s: string) => /^".*"/.test(s);
@@ -212,7 +231,7 @@ export function activate(context: vscode.ExtensionContext) {
         ) {
           pwdString = path.dirname(pwdString);
         }
-        searchDirs([pwdString]);
+        searchDirs([pwdString], `Searching in current directory: ${truncatePath(pwdString)}`);
       }
     );
     context.subscriptions.push(disposableCurrent);
@@ -237,7 +256,11 @@ export function activate(context: vscode.ExtensionContext) {
         pwdString = path.dirname(pwdString);
       }
       
-      searchDirs([pwdString]);
+      // Create descriptive title based on level
+      let title: string;
+      title = `Level ${level} grep in: ${truncatePath(pwdString)}`;
+      
+      searchDirs([pwdString], title);
     };
 
     // Register commands for different levels
