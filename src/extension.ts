@@ -11,6 +11,13 @@ const workspaceFolders: string[] | undefined =
   vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath);
 
 const getRgPath = (extensionPath: string) => {
+  // Check if user has configured a custom rg path
+  const customRgPath = vscode.workspace.getConfiguration('livegrep').get<string>('rgPath');
+  if (customRgPath && customRgPath.trim() !== '') {
+    return customRgPath;
+  }
+
+  // Use bundled version
   const binVersion = "13_0_0";
   const basePath = `${extensionPath}/bin/${binVersion}`;
   switch (platform) {
@@ -27,6 +34,17 @@ const getRgPath = (extensionPath: string) => {
     default:
       return "rg";
   }
+};
+
+const getFdPath = () => {
+  // Check if user has configured a custom fd path
+  const customFdPath = vscode.workspace.getConfiguration('livegrep').get<string>('fdPath');
+  if (customFdPath && customFdPath.trim() !== '') {
+    return customFdPath;
+  }
+
+  // Use system PATH
+  return "fd";
 };
 
 interface QuickPickItemWithLine extends vscode.QuickPickItem {

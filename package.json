@@ -31,7 +31,7 @@
     "fuzzy grep"
   ],
   "pricing": "Free",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "engines": {
     "vscode": "^1.81.0"
   },
@@ -74,7 +74,24 @@
         "command": "livegrep.searchLevel_5",
         "title": "LiveGrep: Grep in level 5"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "LiveGrep",
+      "properties": {
+        "livegrep.rgPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to ripgrep (rg) executable. Leave empty to use bundled version.",
+          "scope": "resource"
+        },
+        "livegrep.fdPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to fd executable. Leave empty to use system PATH.",
+          "scope": "resource"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
