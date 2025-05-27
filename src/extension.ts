@@ -44,6 +44,11 @@ const getFdPath = () => {
   return "fd";
 };
 
+const getContextLines = () => {
+  // Get configured context lines, default to 20
+  return vscode.workspace.getConfiguration('livegrep').get<number>('contextLines') || 20;
+};
+
 export function activate(context: vscode.ExtensionContext) {
   const rgPath = getRgPath(context.extensionUri.fsPath);
   const fdPath = getFdPath();

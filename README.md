@@ -29,27 +29,35 @@ A ripgrep extension for Visual Studio Code to mimic Telescope in Neovim, in the 
 
 ### Webview Search (New!)
 - `livegrep.webviewSearch` - Open Telescope-like webview interface with split-pane search results and file preview
+- `livegrep.webviewSearchCurrent` - Webview search in current folder
+- `livegrep.webviewSearchLevel_0` to `livegrep.webviewSearchLevel_5` - Webview search at specific directory levels
   - **Keyboard shortcut**: `Ctrl+Shift+Alt+F` (Windows/Linux) or `Cmd+Shift+Alt+F` (Mac)
   - **Features**: 
     - Split-pane interface: file list on left, content preview on right
     - Syntax highlighting in preview
     - Context lines around matches
     - Highlighted search terms
-    - Keyboard navigation (Arrow keys, Enter to open file)
+    - Keyboard navigation (Arrow keys, Ctrl+N/P, Enter to open file)
     - Real-time search as you type
+    - Supports initial query parameter for programmatic invocation
 
 ## Configuration
 
-You can customize the paths to ripgrep and fd executables in your VS Code settings:
+You can customize the paths to ripgrep and fd executables, as well as the webview search behavior in your VS Code settings:
 
 ```json
 {
   "livegrep.rgPath": "/custom/path/to/rg",
-  "livegrep.fdPath": "/custom/path/to/fd"
+  "livegrep.fdPath": "/custom/path/to/fd",
+  "livegrep.contextLines": 20
 }
 ```
 
-Leave these empty to use the bundled ripgrep version or system PATH for fd.
+### Configuration Options
+
+- **`livegrep.rgPath`**: Custom path to ripgrep (rg) executable. Leave empty to use bundled version.
+- **`livegrep.fdPath`**: Custom path to fd executable. Leave empty to use system PATH.
+- **`livegrep.contextLines`**: Number of context lines to show before and after each match in webview search (default: 20, range: 0-100).
 
 ## Vim Configuration
 
@@ -82,6 +90,10 @@ end, opts)
 keymap("n", "<leader>fw", function()
   vim.fn.VSCodeNotify("livegrep.webviewSearch")
 end, opts)
+
+keymap("n", "<leader>fc", function()
+  vim.fn.VSCodeNotify("livegrep.webviewSearchCurrent")
+end, opts)
 ```
 
 ### Level-based Search (Advanced)
@@ -97,6 +109,13 @@ end
 for i = 0, 5 do
   keymap("n", "<leader>kf" .. i, function()
     vim.fn.VSCodeNotify("livegrep.searchFilesLevel_" .. i)
+  end, opts)
+end
+
+-- Webview search at different directory levels
+for i = 0, 5 do
+  keymap("n", "<leader>kw" .. i, function()
+    vim.fn.VSCodeNotify("livegrep.webviewSearchLevel_" .. i)
   end, opts)
 end
 ```

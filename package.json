@@ -109,6 +109,34 @@
       {
         "command": "livegrep.webviewSearch",
         "title": "LiveGrep: Webview Search"
+      },
+      {
+        "command": "livegrep.webviewSearchCurrent",
+        "title": "LiveGrep: Webview Search Current Folder"
+      },
+      {
+        "command": "livegrep.webviewSearchLevel_0",
+        "title": "LiveGrep: Webview Search in level 0"
+      },
+      {
+        "command": "livegrep.webviewSearchLevel_1",
+        "title": "LiveGrep: Webview Search in level 1"
+      },
+      {
+        "command": "livegrep.webviewSearchLevel_2",
+        "title": "LiveGrep: Webview Search in level 2"
+      },
+      {
+        "command": "livegrep.webviewSearchLevel_3",
+        "title": "LiveGrep: Webview Search in level 3"
+      },
+      {
+        "command": "livegrep.webviewSearchLevel_4",
+        "title": "LiveGrep: Webview Search in level 4"
+      },
+      {
+        "command": "livegrep.webviewSearchLevel_5",
+        "title": "LiveGrep: Webview Search in level 5"
       }
     ],
     "configuration": {
@@ -124,6 +152,14 @@
           "type": "string",
           "default": "",
           "description": "Custom path to fd executable. Leave empty to use system PATH.",
+          "scope": "resource"
+        },
+        "livegrep.contextLines": {
+          "type": "number",
+          "default": 20,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Number of context lines to show before and after each match in webview search.",
           "scope": "resource"
         }
       }

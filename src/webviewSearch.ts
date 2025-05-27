@@ -74,11 +74,10 @@ async function openFileAtLine(filePath: string, lineNumber: number) {
   }
 }
 
-async function getFilePreview(filePath: string, lineNumber: number, searchQuery: string): Promise<string> {
+async function getFilePreview(filePath: string, lineNumber: number, searchQuery: string, contextLines: number = 20): Promise<string> {
   try {
     const doc = await vscode.workspace.openTextDocument(filePath);
     const totalLines = doc.lineCount;
-    const contextLines = 5;
     
     const startLine = Math.max(0, lineNumber - contextLines - 1);
     const endLine = Math.min(totalLines - 1, lineNumber + contextLines - 1);
@@ -122,7 +121,7 @@ function escapeRegex(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, initialQuery?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -512,17 +511,37 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
             }
         });
         
+        // Set initial query if provided
+        const initialQuery = '${initialQuery || ''}';
+        if (initialQuery) {
+            searchInput.value = initialQuery;
+            // Trigger search after a short delay to ensure everything is ready
+            setTimeout(() => {
+                performSearch(initialQuery);
+            }, 100);
+        }
+        
         // Focus search input on load
         searchInput.focus();
+        
+        // Notify extension that webview is ready
+        vscode.postMessage({ command: 'ready' });
     </script>
 </body>
 </html>`;
 }
 
-export function createWebviewSearchPanel(context: vscode.ExtensionContext, rgPath: string, workspaceFolders: string[]) {
+export function createWebviewSearchPanel(
+  context: vscode.ExtensionContext, 
+  rgPath: string, 
+  searchDirs: string[],
+  initialQuery?: string,
+  title?: string,
+  contextLines: number = 20
+) {
   const panel = vscode.window.createWebviewPanel(
     'livegrepWebview',
-    'LiveGrep Search',
+    title || 'LiveGrep Search',
     vscode.ViewColumn.One,
     {
       enableScripts: true,
@@ -531,22 +550,29 @@ export function createWebviewSearchPanel(context: vscode.ExtensionContext, rgPat
     }
   );
 
-  panel.webview.html = getWebviewContent(panel.webview, context.extensionUri);
+  panel.webview.html = getWebviewContent(panel.webview, context.extensionUri, initialQuery);
 
   // Handle messages from the webview
   panel.webview.onDidReceiveMessage(
     async (message) => {
       switch (message.command) {
         case 'search':
-          const results = await performWebviewSearch(rgPath, workspaceFolders, message.query);
+          const results = await performWebviewSearch(rgPath, searchDirs, message.query);
           panel.webview.postMessage({ command: 'searchResults', results });
           break;
         case 'openFile':
           await openFileAtLine(message.filePath, message.lineNumber);
           break;
         case 'previewFile':
-          const preview = await getFilePreview(message.filePath, message.lineNumber, message.query);
+          const preview = await getFilePreview(message.filePath, message.lineNumber, message.query, contextLines);
           panel.webview.postMessage({ command: 'filePreview', preview, filePath: message.filePath });
+          break;
+        case 'ready':
+          // Webview is ready, trigger initial search if query provided
+          if (initialQuery) {
+            const results = await performWebviewSearch(rgPath, searchDirs, initialQuery);
+            panel.webview.postMessage({ command: 'searchResults', results });
+          }
           break;
       }
     },
@@ -555,22 +581,107 @@ export function createWebviewSearchPanel(context: vscode.ExtensionContext, rgPat
   );
 }
 
+function truncatePath(pwdString: string, maxLength: number = 30): string {
+  if (pwdString.length <= maxLength) {
+    return pwdString;
+  }
+  
+  // Take the last maxLength characters and prepend with "..."
+  const truncated = pwdString.slice(-maxLength);
+  return `...${truncated}`;
+}
+
 export function registerWebviewSearchCommand(
   context: vscode.ExtensionContext,
   rgPath: string,
   workspaceFolders: string[] | undefined
 ) {
+  const getContextLines = () => {
+    return vscode.workspace.getConfiguration('livegrep').get<number>('contextLines') || 20;
+  };
+  // Workspace webview search
   const disposableWebviewSearch = vscode.commands.registerCommand(
     "livegrep.webviewSearch",
-    async () => {
+    async (initialQuery?: string) => {
       if (!workspaceFolders) {
         vscode.window.showErrorMessage(
           "Open a workspace or a folder for LiveGrep: Webview Search to work"
         );
         return;
       }
-      createWebviewSearchPanel(context, rgPath, workspaceFolders);
+      const title = initialQuery 
+        ? `LiveGrep: Searching workspace for "${initialQuery}"` 
+        : "LiveGrep: Search Workspace";
+      createWebviewSearchPanel(context, rgPath, workspaceFolders, initialQuery, title, getContextLines());
     }
   );
   context.subscriptions.push(disposableWebviewSearch);
+
+  // Current folder webview search
+  const disposableWebviewSearchCurrent = vscode.commands.registerCommand(
+    "livegrep.webviewSearchCurrent",
+    async (initialQuery?: string) => {
+      if (!vscode.window.activeTextEditor) {
+        vscode.window.showErrorMessage("No active editor.");
+        return;
+      }
+      let pwd = vscode.Uri.parse(
+        vscode.window.activeTextEditor.document.uri.path
+      );
+      let pwdString = pwd.path;
+      if (
+        (await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File
+      ) {
+        pwdString = path.dirname(pwdString);
+      }
+      const title = initialQuery 
+        ? `LiveGrep: Searching "${initialQuery}" in ${truncatePath(pwdString)}` 
+        : `LiveGrep: Search in ${truncatePath(pwdString)}`;
+      createWebviewSearchPanel(context, rgPath, [pwdString], initialQuery, title, getContextLines());
+    }
+  );
+  context.subscriptions.push(disposableWebviewSearchCurrent);
+
+  // Level-based webview search
+  const webviewSearchLevel = async (level: number, initialQuery?: string) => {
+    if (!vscode.window.activeTextEditor) {
+      vscode.window.showErrorMessage("No active editor.");
+      return;
+    }
+    let pwd = vscode.Uri.parse(
+      vscode.window.activeTextEditor.document.uri.path
+    );
+    let pwdString = pwd.path;
+    if (
+      (await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File
+    ) {
+      pwdString = path.dirname(pwdString);
+    }
+    
+    // Go up 'level' number of directories
+    for (let i = 0; i < level; i++) {
+      pwdString = path.dirname(pwdString);
+    }
+    
+    // Create descriptive title based on level
+    let title: string;
+    if (initialQuery) {
+      title = `LiveGrep: Level ${level} search for "${initialQuery}" in ${truncatePath(pwdString)}`;
+    } else {
+      title = `LiveGrep: Level ${level} search in ${truncatePath(pwdString)}`;
+    }
+    
+    createWebviewSearchPanel(context, rgPath, [pwdString], initialQuery, title, getContextLines());
+  };
+
+  // Register webview commands for different levels
+  for (let level = 0; level <= 5; level++) {
+    const disposableWebviewLevel = vscode.commands.registerCommand(
+      `livegrep.webviewSearchLevel_${level}`,
+      async (initialQuery?: string) => {
+        await webviewSearchLevel(level, initialQuery);
+      }
+    );
+    context.subscriptions.push(disposableWebviewLevel);
+  }
 } 
