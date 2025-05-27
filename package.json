@@ -1,9 +1,9 @@
 {
   "name": "livegrep",
   "displayName": "Live Grep",
-  "description": "Ripgrep in the command palette",
+  "description": "Ripgrep and fd in the command palette",
   "license": "SEE LICENSE IN LICENSE",
-  "publisher": "YomiTosh",
+  "publisher": "shadowfax92",
   "repository": {
     "type": "git",
     "url": "https://github.com/abayomi185/vscode-livegrep"
@@ -14,9 +14,9 @@
     "theme": "dark"
   },
   "author": {
-    "name": "Yomi"
+    "name": "shadowfax92"
   },
-  "homepage": "https://github.com/abayomi185/vscode-livegrep/blob/main/README.md",
+  "homepage": "https://github.com/shadowfax92/vscode-livegrep/blob/main/README.md",
   "keywords": [
     "ripgrep",
     "rg",
@@ -31,7 +31,7 @@
     "fuzzy grep"
   ],
   "pricing": "Free",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "engines": {
     "vscode": "^1.81.0"
   },
