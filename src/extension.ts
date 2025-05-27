@@ -427,7 +427,6 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
             padding: 8px 12px;
             border-bottom: 1px solid var(--vscode-list-inactiveSelectionBackground);
             cursor: pointer;
-            transition: background-color 0.1s;
         }
         
         .result-item:hover {
@@ -562,20 +561,20 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
             }, 300);
         });
         
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                navigateResults(1);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                navigateResults(-1);
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (selectedIndex >= 0 && currentResults[selectedIndex]) {
-                    openSelectedFile();
-                }
-            }
-        });
+                 searchInput.addEventListener('keydown', (e) => {
+             if (e.key === 'ArrowDown') {
+                 e.preventDefault();
+                 navigateResults(1);
+             } else if (e.key === 'ArrowUp') {
+                 e.preventDefault();
+                 navigateResults(-1);
+             } else if (e.key === 'Enter') {
+                 e.preventDefault();
+                 if (selectedIndex >= 0 && currentResults[selectedIndex]) {
+                     openSelectedFile();
+                 }
+             }
+         });
         
         function performSearch(query) {
             showLoading();
@@ -650,20 +649,23 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
             });
         }
         
-        function navigateResults(direction) {
-            if (currentResults.length === 0) return;
-            
-            const newIndex = selectedIndex + direction;
-            if (newIndex >= 0 && newIndex < currentResults.length) {
-                selectResult(newIndex);
-                
-                // Scroll selected item into view
-                const selectedItem = resultsPanel.querySelector('.result-item.selected');
-                if (selectedItem) {
-                    selectedItem.scrollIntoView({ block: 'nearest' });
-                }
-            }
-        }
+                 function navigateResults(direction) {
+             if (currentResults.length === 0) return;
+             
+             const newIndex = selectedIndex + direction;
+             if (newIndex >= 0 && newIndex < currentResults.length) {
+                 selectResult(newIndex);
+                 
+                 // Instant scroll with no animation
+                 const selectedItem = resultsPanel.querySelector('.result-item.selected');
+                 if (selectedItem) {
+                     selectedItem.scrollIntoView({ 
+                         block: 'nearest', 
+                         behavior: 'instant' 
+                     });
+                 }
+             }
+         }
         
         function openSelectedFile() {
             if (selectedIndex >= 0 && currentResults[selectedIndex]) {
@@ -690,22 +692,50 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): s
             return div.innerHTML;
         }
         
-        // Handle messages from extension
-        window.addEventListener('message', event => {
-            const message = event.data;
-            
-            switch (message.command) {
-                case 'searchResults':
-                    displayResults(message.results);
-                    break;
-                case 'filePreview':
-                    displayPreview(message.preview, message.filePath);
-                    break;
-            }
-        });
-        
-        // Focus search input on load
-        searchInput.focus();
+                 // Global keyboard navigation (works even when search input doesn't have focus)
+         document.addEventListener('keydown', (e) => {
+             // Only handle if not typing in search input or if using Ctrl combinations
+             if (e.target !== searchInput || e.ctrlKey) {
+                 if (e.ctrlKey && e.key === 'n') {
+                     e.preventDefault();
+                     navigateResults(1);
+                 } else if (e.ctrlKey && e.key === 'p') {
+                     e.preventDefault();
+                     navigateResults(-1);
+                 } else if (e.target !== searchInput) {
+                     // Allow arrow keys when not in search input
+                     if (e.key === 'ArrowDown') {
+                         e.preventDefault();
+                         navigateResults(1);
+                     } else if (e.key === 'ArrowUp') {
+                         e.preventDefault();
+                         navigateResults(-1);
+                     } else if (e.key === 'Enter') {
+                         e.preventDefault();
+                         if (selectedIndex >= 0 && currentResults[selectedIndex]) {
+                             openSelectedFile();
+                         }
+                     }
+                 }
+             }
+         });
+
+         // Handle messages from extension
+         window.addEventListener('message', event => {
+             const message = event.data;
+             
+             switch (message.command) {
+                 case 'searchResults':
+                     displayResults(message.results);
+                     break;
+                 case 'filePreview':
+                     displayPreview(message.preview, message.filePath);
+                     break;
+             }
+         });
+         
+         // Focus search input on load
+         searchInput.focus();
     </script>
 </body>
 </html>`;
