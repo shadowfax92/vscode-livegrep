@@ -127,14 +127,7 @@
           "scope": "resource"
         }
       }
-    },
-    "keybindings": [
-      {
-        "command": "livegrep.webviewSearch",
-        "key": "ctrl+shift+alt+f",
-        "mac": "cmd+shift+alt+f"
-      }
-    ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
