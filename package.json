@@ -31,7 +31,7 @@
     "fuzzy grep"
   ],
   "pricing": "Free",
-  "version": "0.5.1",
+  "version": "0.5.3",
   "engines": {
     "vscode": "^1.81.0"
   },
@@ -73,6 +73,38 @@
       {
         "command": "livegrep.searchLevel_5",
         "title": "LiveGrep: Grep in level 5"
+      },
+      {
+        "command": "livegrep.searchFiles",
+        "title": "LiveGrep: Search Files in Workspace"
+      },
+      {
+        "command": "livegrep.searchFilesCurrent",
+        "title": "LiveGrep: Search Files in Current Folder"
+      },
+      {
+        "command": "livegrep.searchFilesLevel_0",
+        "title": "LiveGrep: Find files in level 0"
+      },
+      {
+        "command": "livegrep.searchFilesLevel_1",
+        "title": "LiveGrep: Find files in level 1"
+      },
+      {
+        "command": "livegrep.searchFilesLevel_2",
+        "title": "LiveGrep: Find files in level 2"
+      },
+      {
+        "command": "livegrep.searchFilesLevel_3",
+        "title": "LiveGrep: Find files in level 3"
+      },
+      {
+        "command": "livegrep.searchFilesLevel_4",
+        "title": "LiveGrep: Find files in level 4"
+      },
+      {
+        "command": "livegrep.searchFilesLevel_5",
+        "title": "LiveGrep: Find files in level 5"
       }
     ],
     "configuration": {

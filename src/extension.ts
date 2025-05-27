@@ -51,6 +51,10 @@ interface QuickPickItemWithLine extends vscode.QuickPickItem {
   num: number;
 }
 
+interface QuickPickItemFile extends vscode.QuickPickItem {
+  filePath: string;
+}
+
 function truncatePath(pwdString: string, maxLength: number = 30): string {
   if (pwdString.length <= maxLength) {
     return pwdString;
@@ -59,6 +63,83 @@ function truncatePath(pwdString: string, maxLength: number = 30): string {
   // Take the last maxLength characters and prepend with "..."
   const truncated = pwdString.slice(-maxLength);
   return `...${truncated}`;
+}
+
+// Helper function to detect if search term has uppercase letters (for case sensitivity)
+function hasUpperCase(str: string): boolean {
+  return /[A-Z]/.test(str);
+}
+
+// Helper function to build fd command with sensible defaults
+function buildFdCommand(fdPath: string, searchTerm: string): string[] {
+  const args = [];
+  
+  // Add case sensitivity based on search term
+  if (!hasUpperCase(searchTerm)) {
+    args.push("--ignore-case");
+  }
+  
+  // Sensible defaults based on fd documentation
+  // fd respects .gitignore and .ignore files by default
+  args.push(
+    "--type", "f",           // Only files, not directories
+    "--hidden",              // Include hidden files
+    "--follow",              // Follow symbolic links
+    "--color", "never",      // No color output for parsing
+    "--absolute-path"        // Return absolute paths
+  );
+  
+  // Add the search pattern
+  args.push(searchTerm);
+  
+  return [fdPath, ...args];
+}
+
+function fetchFileItems(
+  command: string,
+  dir: string
+): Promise<QuickPickItemFile[]> {
+  return new Promise((resolve, reject) => {
+    if (dir === "") {
+      reject(new Error("Can't parse dir ''"));
+    }
+    
+    cp.exec(
+      command,
+      { cwd: dir, maxBuffer: MAX_BUF_SIZE },
+      (err, stdout, stderr) => {
+        if (err) {
+          reject(new Error(`fd command failed: ${err.message}`));
+          return;
+        }
+        
+        if (stderr && !stdout) {
+          reject(new Error(stderr));
+          return;
+        }
+        
+        const lines = stdout.split(/\n/).filter((l) => l !== "");
+        
+        if (!lines.length) {
+          resolve([]);
+          return;
+        }
+        
+        const results = lines.map((filePath) => {
+          const fileName = path.basename(filePath);
+          const relativePath = path.relative(dir, filePath);
+          return {
+            label: fileName,
+            description: relativePath,
+            detail: filePath,
+            filePath: filePath,
+          };
+        });
+        
+        resolve(results);
+      }
+    );
+  });
 }
 
 function fetchItems(
@@ -113,9 +194,12 @@ function fetchItems(
 
 export function activate(context: vscode.ExtensionContext) {
   const rgPath = getRgPath(context.extensionUri.fsPath);
+  const fdPath = getFdPath();
   let quickPickValue: string;
 
   const scrollBack: QuickPickItemWithLine[] = [];
+  const fileScrollBack: QuickPickItemFile[] = [];
+
   async function searchDirs(dirs: string[], title?: string) {
     const quickPick = vscode.window.createQuickPick();
     quickPick.placeholder = "Please enter a search term";
@@ -218,6 +302,86 @@ export function activate(context: vscode.ExtensionContext) {
     quickPick.show();
   }
 
+  async function searchFiles(dirs: string[], title?: string) {
+    const quickPick = vscode.window.createQuickPick<QuickPickItemFile>();
+    quickPick.placeholder = "Please enter a file name pattern";
+    quickPick.matchOnDescription = true;
+    
+    // Set title to show which directory is being searched
+    if (title) {
+      quickPick.title = title;
+    } else if (dirs.length === 1) {
+      quickPick.title = `Finding files in: ${truncatePath(dirs[0])}`;
+    } else {
+      quickPick.title = `Finding files in ${dirs.length} directories`;
+    }
+
+    quickPick.items = fileScrollBack;
+
+    quickPick.onDidChangeValue(async (value) => {
+      quickPickValue = value;
+      if (!value || value === "") {
+        return;
+      }
+
+      // Build fd command with sensible defaults
+      const fdArgs = buildFdCommand(fdPath, value);
+      const quoteSearch = quote(fdArgs);
+      
+      quickPick.items = (
+        await Promise.allSettled(
+          dirs.map((dir) => fetchFileItems(quoteSearch, dir))
+        )
+      )
+        .map((result) => {
+          if (result.status === "rejected") {
+            vscode.window.showErrorMessage(result.reason);
+          }
+          return result;
+        })
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => {
+          if (result.status === "fulfilled") {
+            return result.value;
+          }
+          return [];
+        })
+        .flat();
+    });
+
+    quickPick.onDidAccept(async () => {
+      const item = quickPick.selectedItems[0] as QuickPickItemFile;
+      if (!item) {
+        return;
+      }
+
+      if (item.description === "History") {
+        quickPick.value = item.label;
+        return;
+      }
+
+      // Create scrollback item to store history
+      const scrollBackItem = {
+        label: quickPickValue,
+        description: "History",
+        filePath: "",
+      };
+      // Scrollback history is limited to 20 items
+      if (fileScrollBack.length > 20) {
+        // Remove oldest item
+        fileScrollBack.pop();
+      }
+      fileScrollBack.unshift(scrollBackItem);
+
+      const { filePath } = item;
+      const doc = await vscode.workspace.openTextDocument(filePath);
+      await vscode.window.showTextDocument(doc);
+      quickPick.hide();
+    });
+
+    quickPick.show();
+  }
+
   (async () => {
     const disposableWorkspace = vscode.commands.registerCommand(
       "livegrep.search",
@@ -290,6 +454,80 @@ export function activate(context: vscode.ExtensionContext) {
         }
       );
       context.subscriptions.push(disposableLevel);
+    }
+
+    // File search commands using fd
+    const disposableSearchFiles = vscode.commands.registerCommand(
+      "livegrep.searchFiles",
+      async () => {
+        if (!workspaceFolders) {
+          vscode.window.showErrorMessage(
+            "Open a workspace or a folder for LiveGrep: Search Files to work"
+          );
+          return;
+        }
+        searchFiles(workspaceFolders);
+      }
+    );
+    context.subscriptions.push(disposableSearchFiles);
+
+    const disposableSearchFilesCurrent = vscode.commands.registerCommand(
+      "livegrep.searchFilesCurrent",
+      async () => {
+        if (!vscode.window.activeTextEditor) {
+          vscode.window.showErrorMessage("No active editor.");
+          return;
+        }
+        let pwd = vscode.Uri.parse(
+          vscode.window.activeTextEditor.document.uri.path
+        );
+        let pwdString = pwd.path;
+        if (
+          (await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File
+        ) {
+          pwdString = path.dirname(pwdString);
+        }
+        searchFiles([pwdString], `Finding files in current directory: ${truncatePath(pwdString)}`);
+      }
+    );
+    context.subscriptions.push(disposableSearchFilesCurrent);
+
+    const searchFilesLevel = async (level: number) => {
+      if (!vscode.window.activeTextEditor) {
+        vscode.window.showErrorMessage("No active editor.");
+        return;
+      }
+      let pwd = vscode.Uri.parse(
+        vscode.window.activeTextEditor.document.uri.path
+      );
+      let pwdString = pwd.path;
+      if (
+        (await vscode.workspace.fs.stat(pwd)).type === vscode.FileType.File
+      ) {
+        pwdString = path.dirname(pwdString);
+      }
+      
+      // Go up 'level' number of directories
+      for (let i = 0; i < level; i++) {
+        pwdString = path.dirname(pwdString);
+      }
+      
+      // Create descriptive title based on level
+      let title: string;
+      title = `Level ${level} find files in: ${truncatePath(pwdString)}`;
+      
+      searchFiles([pwdString], title);
+    };
+
+    // Register file search commands for different levels
+    for (let level = 0; level <= 5; level++) {
+      const disposableFilesLevel = vscode.commands.registerCommand(
+        `livegrep.searchFilesLevel_${level}`,
+        async () => {
+          await searchFilesLevel(level);
+        }
+      );
+      context.subscriptions.push(disposableFilesLevel);
     }
   })().catch((error) => {
     vscode.window.showErrorMessage(error);
