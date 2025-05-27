@@ -200,10 +200,15 @@ export function activate(context: vscode.ExtensionContext) {
   const scrollBack: QuickPickItemWithLine[] = [];
   const fileScrollBack: QuickPickItemFile[] = [];
 
-  async function searchDirs(dirs: string[], title?: string) {
+  async function searchDirs(dirs: string[], title?: string, initialValue?: string) {
     const quickPick = vscode.window.createQuickPick();
     quickPick.placeholder = "Please enter a search term";
     quickPick.matchOnDescription = true;
+    
+    // Set initial value if provided
+    if (initialValue) {
+      quickPick.value = initialValue;
+    }
     
     // Set title to show which directory is being searched
     if (title) {
@@ -219,7 +224,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     quickPick.items = scrollBack;
 
-    quickPick.onDidChangeValue(async (value) => {
+    const handleValueChange = async (value: string) => {
       quickPickValue = value;
       if (!value || value === "") {
         return;
@@ -257,7 +262,9 @@ export function activate(context: vscode.ExtensionContext) {
           return [];
         })
         .flat();
-    });
+    };
+
+    quickPick.onDidChangeValue(handleValueChange);
 
     quickPick.onDidAccept(async () => {
       const item = quickPick.selectedItems[0] as QuickPickItemWithLine;
@@ -300,12 +307,22 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     quickPick.show();
+    
+    // If initial value is provided, trigger search immediately
+    if (initialValue) {
+      handleValueChange(initialValue);
+    }
   }
 
-  async function searchFiles(dirs: string[], title?: string) {
+  async function searchFiles(dirs: string[], title?: string, initialValue?: string) {
     const quickPick = vscode.window.createQuickPick<QuickPickItemFile>();
     quickPick.placeholder = "Please enter a file name pattern";
     quickPick.matchOnDescription = true;
+    
+    // Set initial value if provided
+    if (initialValue) {
+      quickPick.value = initialValue;
+    }
     
     // Set title to show which directory is being searched
     if (title) {
@@ -318,7 +335,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     quickPick.items = fileScrollBack;
 
-    quickPick.onDidChangeValue(async (value) => {
+    const handleFileValueChange = async (value: string) => {
       quickPickValue = value;
       if (!value || value === "") {
         return;
@@ -347,7 +364,9 @@ export function activate(context: vscode.ExtensionContext) {
           return [];
         })
         .flat();
-    });
+    };
+
+    quickPick.onDidChangeValue(handleFileValueChange);
 
     quickPick.onDidAccept(async () => {
       const item = quickPick.selectedItems[0] as QuickPickItemFile;
@@ -380,26 +399,32 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     quickPick.show();
+    
+    // If initial value is provided, trigger search immediately
+    if (initialValue) {
+      handleFileValueChange(initialValue);
+    }
   }
 
   (async () => {
     const disposableWorkspace = vscode.commands.registerCommand(
       "livegrep.search",
-      async () => {
+      async (initialValue?: string) => {
         if (!workspaceFolders) {
           vscode.window.showErrorMessage(
             "Open a workspace or a folder for Livegrep: Search Workspace to work"
           );
           return;
         }
-        searchDirs(workspaceFolders);
+        const title = initialValue ? `Searching workspace for: ${initialValue}` : undefined;
+        searchDirs(workspaceFolders, title, initialValue);
       }
     );
     context.subscriptions.push(disposableWorkspace);
 
     const disposableCurrent = vscode.commands.registerCommand(
       "livegrep.searchCurrent",
-      async () => {
+      async (initialValue?: string) => {
         if (!vscode.window.activeTextEditor) {
           vscode.window.showErrorMessage("No active editor.");
           return;
@@ -413,12 +438,15 @@ export function activate(context: vscode.ExtensionContext) {
         ) {
           pwdString = path.dirname(pwdString);
         }
-        searchDirs([pwdString], `Searching in current directory: ${truncatePath(pwdString)}`);
+        const title = initialValue 
+          ? `Searching in current directory for: ${initialValue}` 
+          : `Searching in current directory: ${truncatePath(pwdString)}`;
+        searchDirs([pwdString], title, initialValue);
       }
     );
     context.subscriptions.push(disposableCurrent);
 
-    const searchLevel = async (level: number) => {
+    const searchLevel = async (level: number, initialValue?: string) => {
       if (!vscode.window.activeTextEditor) {
         vscode.window.showErrorMessage("No active editor.");
         return;
@@ -440,17 +468,21 @@ export function activate(context: vscode.ExtensionContext) {
       
       // Create descriptive title based on level
       let title: string;
-      title = `Level ${level} grep in: ${truncatePath(pwdString)}`;
+      if (initialValue) {
+        title = `Level ${level} grep for: ${initialValue} in: ${truncatePath(pwdString)}`;
+      } else {
+        title = `Level ${level} grep in: ${truncatePath(pwdString)}`;
+      }
       
-      searchDirs([pwdString], title);
+      searchDirs([pwdString], title, initialValue);
     };
 
     // Register commands for different levels
     for (let level = 0; level <= 5; level++) {
       const disposableLevel = vscode.commands.registerCommand(
         `livegrep.searchLevel_${level}`,
-        async () => {
-          await searchLevel(level);
+        async (initialValue?: string) => {
+          await searchLevel(level, initialValue);
         }
       );
       context.subscriptions.push(disposableLevel);
@@ -459,21 +491,22 @@ export function activate(context: vscode.ExtensionContext) {
     // File search commands using fd
     const disposableSearchFiles = vscode.commands.registerCommand(
       "livegrep.searchFiles",
-      async () => {
+      async (initialValue?: string) => {
         if (!workspaceFolders) {
           vscode.window.showErrorMessage(
             "Open a workspace or a folder for LiveGrep: Search Files to work"
           );
           return;
         }
-        searchFiles(workspaceFolders);
+        const title = initialValue ? `Finding files matching: ${initialValue}` : undefined;
+        searchFiles(workspaceFolders, title, initialValue);
       }
     );
     context.subscriptions.push(disposableSearchFiles);
 
     const disposableSearchFilesCurrent = vscode.commands.registerCommand(
       "livegrep.searchFilesCurrent",
-      async () => {
+      async (initialValue?: string) => {
         if (!vscode.window.activeTextEditor) {
           vscode.window.showErrorMessage("No active editor.");
           return;
@@ -487,12 +520,15 @@ export function activate(context: vscode.ExtensionContext) {
         ) {
           pwdString = path.dirname(pwdString);
         }
-        searchFiles([pwdString], `Finding files in current directory: ${truncatePath(pwdString)}`);
+        const title = initialValue 
+          ? `Finding files in current directory matching: ${initialValue}` 
+          : `Finding files in current directory: ${truncatePath(pwdString)}`;
+        searchFiles([pwdString], title, initialValue);
       }
     );
     context.subscriptions.push(disposableSearchFilesCurrent);
 
-    const searchFilesLevel = async (level: number) => {
+    const searchFilesLevel = async (level: number, initialValue?: string) => {
       if (!vscode.window.activeTextEditor) {
         vscode.window.showErrorMessage("No active editor.");
         return;
@@ -514,21 +550,27 @@ export function activate(context: vscode.ExtensionContext) {
       
       // Create descriptive title based on level
       let title: string;
-      title = `Level ${level} find files in: ${truncatePath(pwdString)}`;
+      if (initialValue) {
+        title = `Level ${level} find files matching: ${initialValue} in: ${truncatePath(pwdString)}`;
+      } else {
+        title = `Level ${level} find files in: ${truncatePath(pwdString)}`;
+      }
       
-      searchFiles([pwdString], title);
+      searchFiles([pwdString], title, initialValue);
     };
 
     // Register file search commands for different levels
     for (let level = 0; level <= 5; level++) {
       const disposableFilesLevel = vscode.commands.registerCommand(
         `livegrep.searchFilesLevel_${level}`,
-        async () => {
-          await searchFilesLevel(level);
+        async (initialValue?: string) => {
+          await searchFilesLevel(level, initialValue);
         }
       );
       context.subscriptions.push(disposableFilesLevel);
     }
+
+
   })().catch((error) => {
     vscode.window.showErrorMessage(error);
   });
