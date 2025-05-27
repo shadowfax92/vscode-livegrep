@@ -27,6 +27,17 @@ A ripgrep extension for Visual Studio Code to mimic Telescope in Neovim, in the 
 - `livegrep.searchFilesCurrent` - Find files in current folder  
 - `livegrep.searchFilesLevel_0` to `livegrep.searchFilesLevel_5` - Find files at specific directory levels
 
+### Webview Search (New!)
+- `livegrep.webviewSearch` - Open Telescope-like webview interface with split-pane search results and file preview
+  - **Keyboard shortcut**: `Ctrl+Shift+Alt+F` (Windows/Linux) or `Cmd+Shift+Alt+F` (Mac)
+  - **Features**: 
+    - Split-pane interface: file list on left, content preview on right
+    - Syntax highlighting in preview
+    - Context lines around matches
+    - Highlighted search terms
+    - Keyboard navigation (Arrow keys, Enter to open file)
+    - Real-time search as you type
+
 ## Configuration
 
 You can customize the paths to ripgrep and fd executables in your VS Code settings:
@@ -65,6 +76,11 @@ end, opts)
 
 keymap("n", "<leader>sf", function()
   vim.fn.VSCodeNotify("livegrep.searchFilesCurrent")
+end, opts)
+
+-- Webview search (Telescope-like interface)
+keymap("n", "<leader>fw", function()
+  vim.fn.VSCodeNotify("livegrep.webviewSearch")
 end, opts)
 ```
 

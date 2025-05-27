@@ -105,6 +105,10 @@
       {
         "command": "livegrep.searchFilesLevel_5",
         "title": "LiveGrep: Find files in level 5"
+      },
+      {
+        "command": "livegrep.webviewSearch",
+        "title": "LiveGrep: Webview Search"
       }
     ],
     "configuration": {
@@ -123,7 +127,14 @@
           "scope": "resource"
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "livegrep.webviewSearch",
+        "key": "ctrl+shift+alt+f",
+        "mac": "cmd+shift+alt+f"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
