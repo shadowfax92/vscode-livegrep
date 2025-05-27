@@ -14,52 +14,110 @@ interface SearchResult {
   relativePath: string;
 }
 
-async function performWebviewSearch(rgPath: string, dirs: string[], query: string): Promise<SearchResult[]> {
+async function performWebviewSearchLive(
+  rgPath: string, 
+  dirs: string[], 
+  query: string,
+  onResult: (result: SearchResult) => void,
+  onComplete: () => void,
+  onError: (error: string) => void
+): Promise<void> {
   if (!query || query.trim() === '') {
-    return [];
+    onComplete();
+    return;
   }
 
-  const results: SearchResult[] = [];
+  let processCount = dirs.length;
   
   for (const dir of dirs) {
     try {
-      const rgArgs = [rgPath, "-n", "-i", query, "."];
-      const command = quote(rgArgs);
-      
-      const searchResults = await new Promise<SearchResult[]>((resolve, reject) => {
-        cp.exec(command, { cwd: dir, maxBuffer: MAX_BUF_SIZE }, (err, stdout, stderr) => {
-          if (err && !stdout) {
-            resolve([]);
-            return;
-          }
-          
-          const lines = stdout.split(/\n/).filter(l => l !== "");
-          const dirResults = lines.map(line => {
-            const [fullPath, lineNum, ...contentParts] = line.split(":");
-            const content = contentParts.join(":").trim();
-            const fileName = path.basename(fullPath);
-            const relativePath = path.relative(dir, path.resolve(dir, fullPath));
-            
-            return {
-              filePath: path.resolve(dir, fullPath),
-              fileName,
-              lineNumber: parseInt(lineNum, 10),
-              content,
-              relativePath
-            };
-          }).filter(result => result.content.length < MAX_DESC_LENGTH);
-          
-          resolve(dirResults);
-        });
+      const rgArgs = ["-n", "-i", query, "."];
+      const rgProcess = cp.spawn(rgPath, rgArgs, { 
+        cwd: dir,
+        stdio: ['ignore', 'pipe', 'pipe']
       });
+
+      let buffer = '';
       
-      results.push(...searchResults);
+      rgProcess.stdout?.on('data', (data: Buffer) => {
+        buffer += data.toString();
+        const lines = buffer.split('\n');
+        
+        // Keep the last incomplete line in buffer
+        buffer = lines.pop() || '';
+        
+        // Process complete lines immediately
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          
+          const [fullPath, lineNum, ...contentParts] = line.split(":");
+          if (!fullPath || !lineNum) continue;
+          
+          const content = contentParts.join(":").trim();
+          if (content.length > MAX_DESC_LENGTH) continue;
+          
+          const fileName = path.basename(fullPath);
+          const relativePath = path.relative(dir, path.resolve(dir, fullPath));
+          
+          const result: SearchResult = {
+            filePath: path.resolve(dir, fullPath),
+            fileName,
+            lineNumber: parseInt(lineNum, 10),
+            content,
+            relativePath
+          };
+          
+          // Send result immediately as it comes in
+          onResult(result);
+        }
+      });
+
+      rgProcess.on('close', (code) => {
+        // Process any remaining buffer content
+        if (buffer.trim()) {
+          const line = buffer.trim();
+          const [fullPath, lineNum, ...contentParts] = line.split(":");
+          if (fullPath && lineNum) {
+            const content = contentParts.join(":").trim();
+            if (content.length <= MAX_DESC_LENGTH) {
+              const fileName = path.basename(fullPath);
+              const relativePath = path.relative(dir, path.resolve(dir, fullPath));
+              
+              const result: SearchResult = {
+                filePath: path.resolve(dir, fullPath),
+                fileName,
+                lineNumber: parseInt(lineNum, 10),
+                content,
+                relativePath
+              };
+              
+              onResult(result);
+            }
+          }
+        }
+        
+        processCount--;
+        if (processCount === 0) {
+          onComplete();
+        }
+      });
+
+      rgProcess.on('error', (error) => {
+        console.error(`Search failed in ${dir}:`, error);
+        processCount--;
+        if (processCount === 0) {
+          onComplete();
+        }
+      });
+
     } catch (error) {
       console.error(`Search failed in ${dir}:`, error);
+      processCount--;
+      if (processCount === 0) {
+        onComplete();
+      }
     }
   }
-  
-  return results;
 }
 
 async function openFileAtLine(filePath: string, lineNumber: number) {
@@ -150,6 +208,13 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, in
             padding: 10px;
             border-bottom: 1px solid var(--vscode-panel-border);
             background-color: var(--vscode-sideBar-background);
+        }
+        
+        .search-status {
+            font-size: 0.85em;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 5px;
+            min-height: 16px;
         }
         
         .search-input {
@@ -302,6 +367,7 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, in
 <body>
     <div class="search-container">
         <input type="text" class="search-input" placeholder="Enter search term..." id="searchInput">
+        <div class="search-status" id="searchStatus"></div>
     </div>
     
     <div class="main-content">
@@ -319,10 +385,12 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, in
         const searchInput = document.getElementById('searchInput');
         const resultsPanel = document.getElementById('resultsPanel');
         const previewPanel = document.getElementById('previewPanel');
+        const searchStatus = document.getElementById('searchStatus');
         
         let currentResults = [];
         let selectedIndex = -1;
         let searchTimeout;
+        let isSearching = false;
         
         searchInput.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
@@ -382,7 +450,9 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, in
         });
         
         function performSearch(query) {
+            isSearching = true;
             showLoading();
+            searchStatus.textContent = 'Searching...';
             vscode.postMessage({
                 command: 'search',
                 query: query
@@ -399,40 +469,61 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, in
             previewPanel.innerHTML = '<div class="no-results">Select a file to preview</div>';
             currentResults = [];
             selectedIndex = -1;
+            isSearching = false;
+            searchStatus.textContent = '';
         }
         
-        function displayResults(results) {
-            currentResults = results;
-            selectedIndex = -1;
+        function addResult(result) {
+            currentResults.push(result);
             
-            if (results.length === 0) {
-                resultsPanel.innerHTML = '<div class="no-results">No results found</div>';
-                previewPanel.innerHTML = '<div class="no-results">No results found</div>';
-                return;
-            }
+            // Update status
+            searchStatus.textContent = \`Found \${currentResults.length} result\${currentResults.length === 1 ? '' : 's'}...\`;
             
-            const html = results.map((result, index) => \`
-                <div class="result-item" data-index="\${index}">
+            // Update the display incrementally
+            const resultHtml = \`
+                <div class="result-item" data-index="\${currentResults.length - 1}">
                     <div class="result-filename">\${escapeHtml(result.fileName)}</div>
                     <div class="result-path">\${escapeHtml(result.relativePath)}</div>
                     <div class="result-line-number">Line \${result.lineNumber}</div>
                 </div>
-            \`).join('');
+            \`;
             
-            resultsPanel.innerHTML = html;
-            
-            // Add click handlers
-            resultsPanel.querySelectorAll('.result-item').forEach((item, index) => {
-                item.addEventListener('click', () => {
-                    selectResult(index);
-                });
-            });
-            
-            // Auto-select first result
-            if (results.length > 0) {
+            // If this is the first result, clear the loading message
+            if (currentResults.length === 1) {
+                resultsPanel.innerHTML = resultHtml;
+                // Auto-select first result
                 selectResult(0);
+            } else {
+                // Append new result
+                resultsPanel.insertAdjacentHTML('beforeend', resultHtml);
+            }
+            
+            // Add click handler to the new result
+            const newItem = resultsPanel.lastElementChild;
+            newItem.addEventListener('click', () => {
+                selectResult(currentResults.length - 1);
+            });
+        }
+        
+        function clearResults() {
+            currentResults = [];
+            selectedIndex = -1;
+            resultsPanel.innerHTML = '<div class="loading">Searching...</div>';
+            previewPanel.innerHTML = '<div class="no-results">Searching...</div>';
+        }
+        
+        function searchComplete() {
+            isSearching = false;
+            if (currentResults.length === 0) {
+                resultsPanel.innerHTML = '<div class="no-results">No results found</div>';
+                previewPanel.innerHTML = '<div class="no-results">No results found</div>';
+                searchStatus.textContent = 'No results found';
+            } else {
+                searchStatus.textContent = \`Found \${currentResults.length} result\${currentResults.length === 1 ? '' : 's'}\`;
             }
         }
+        
+
         
         function selectResult(index) {
             if (index < 0 || index >= currentResults.length) return;
@@ -502,8 +593,18 @@ function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri, in
             const message = event.data;
             
             switch (message.command) {
-                case 'searchResults':
-                    displayResults(message.results);
+                case 'clearResults':
+                    clearResults();
+                    break;
+                case 'addResult':
+                    addResult(message.result);
+                    break;
+                case 'searchComplete':
+                    searchComplete();
+                    break;
+                case 'searchError':
+                    console.error('Search error:', message.error);
+                    searchComplete();
                     break;
                 case 'filePreview':
                     displayPreview(message.preview, message.filePath);
@@ -557,8 +658,34 @@ export function createWebviewSearchPanel(
     async (message) => {
       switch (message.command) {
         case 'search':
-          const results = await performWebviewSearch(rgPath, searchDirs, message.query);
-          panel.webview.postMessage({ command: 'searchResults', results });
+          // Clear previous results and start live search
+          panel.webview.postMessage({ command: 'clearResults' });
+          
+          await performWebviewSearchLive(
+            rgPath, 
+            searchDirs, 
+            message.query,
+            // onResult: send each result immediately
+            (result) => {
+              panel.webview.postMessage({ 
+                command: 'addResult', 
+                result 
+              });
+            },
+            // onComplete: search finished
+            () => {
+              panel.webview.postMessage({ 
+                command: 'searchComplete' 
+              });
+            },
+            // onError: handle errors
+            (error) => {
+              panel.webview.postMessage({ 
+                command: 'searchError', 
+                error 
+              });
+            }
+          );
           break;
         case 'openFile':
           await openFileAtLine(message.filePath, message.lineNumber);
@@ -570,8 +697,29 @@ export function createWebviewSearchPanel(
         case 'ready':
           // Webview is ready, trigger initial search if query provided
           if (initialQuery) {
-            const results = await performWebviewSearch(rgPath, searchDirs, initialQuery);
-            panel.webview.postMessage({ command: 'searchResults', results });
+            panel.webview.postMessage({ command: 'clearResults' });
+            await performWebviewSearchLive(
+              rgPath, 
+              searchDirs, 
+              initialQuery,
+              (result) => {
+                panel.webview.postMessage({ 
+                  command: 'addResult', 
+                  result 
+                });
+              },
+              () => {
+                panel.webview.postMessage({ 
+                  command: 'searchComplete' 
+                });
+              },
+              (error) => {
+                panel.webview.postMessage({ 
+                  command: 'searchError', 
+                  error 
+                });
+              }
+            );
           }
           break;
       }
