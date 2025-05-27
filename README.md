@@ -49,7 +49,8 @@ You can customize the paths to ripgrep and fd executables, as well as the webvie
 {
   "livegrep.rgPath": "/custom/path/to/rg",
   "livegrep.fdPath": "/custom/path/to/fd",
-  "livegrep.contextLines": 20
+  "livegrep.contextLines": 20,
+  "livegrep.autoCloseWebview": true
 }
 ```
 
@@ -58,6 +59,7 @@ You can customize the paths to ripgrep and fd executables, as well as the webvie
 - **`livegrep.rgPath`**: Custom path to ripgrep (rg) executable. Leave empty to use bundled version.
 - **`livegrep.fdPath`**: Custom path to fd executable. Leave empty to use system PATH.
 - **`livegrep.contextLines`**: Number of context lines to show before and after each match in webview search (default: 20, range: 0-100).
+- **`livegrep.autoCloseWebview`**: Automatically close the webview search panel when a file is opened (default: true).
 
 ## Vim Configuration
 

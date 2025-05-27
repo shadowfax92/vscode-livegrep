@@ -49,6 +49,11 @@ const getContextLines = () => {
   return vscode.workspace.getConfiguration('livegrep').get<number>('contextLines') || 20;
 };
 
+const getAutoCloseWebview = () => {
+  // Get auto close webview setting, default to true
+  return vscode.workspace.getConfiguration('livegrep').get<boolean>('autoCloseWebview') ?? true;
+};
+
 export function activate(context: vscode.ExtensionContext) {
   const rgPath = getRgPath(context.extensionUri.fsPath);
   const fdPath = getFdPath();

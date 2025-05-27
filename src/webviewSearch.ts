@@ -638,7 +638,8 @@ export function createWebviewSearchPanel(
   searchDirs: string[],
   initialQuery?: string,
   title?: string,
-  contextLines: number = 20
+  contextLines: number = 20,
+  autoClose: boolean = true
 ) {
   const panel = vscode.window.createWebviewPanel(
     'livegrepWebview',
@@ -689,6 +690,9 @@ export function createWebviewSearchPanel(
           break;
         case 'openFile':
           await openFileAtLine(message.filePath, message.lineNumber);
+          if (autoClose) {
+            panel.dispose();
+          }
           break;
         case 'previewFile':
           const preview = await getFilePreview(message.filePath, message.lineNumber, message.query, contextLines);
@@ -747,6 +751,10 @@ export function registerWebviewSearchCommand(
   const getContextLines = () => {
     return vscode.workspace.getConfiguration('livegrep').get<number>('contextLines') || 20;
   };
+  
+  const getAutoCloseWebview = () => {
+    return vscode.workspace.getConfiguration('livegrep').get<boolean>('autoCloseWebview') ?? true;
+  };
   // Workspace webview search
   const disposableWebviewSearch = vscode.commands.registerCommand(
     "livegrep.webviewSearch",
@@ -760,7 +768,7 @@ export function registerWebviewSearchCommand(
       const title = initialQuery 
         ? `LiveGrep: Searching workspace for "${initialQuery}"` 
         : "LiveGrep: Search Workspace";
-      createWebviewSearchPanel(context, rgPath, workspaceFolders, initialQuery, title, getContextLines());
+      createWebviewSearchPanel(context, rgPath, workspaceFolders, initialQuery, title, getContextLines(), getAutoCloseWebview());
     }
   );
   context.subscriptions.push(disposableWebviewSearch);
@@ -785,7 +793,7 @@ export function registerWebviewSearchCommand(
       const title = initialQuery 
         ? `LiveGrep: Searching "${initialQuery}" in ${truncatePath(pwdString)}` 
         : `LiveGrep: Search in ${truncatePath(pwdString)}`;
-      createWebviewSearchPanel(context, rgPath, [pwdString], initialQuery, title, getContextLines());
+      createWebviewSearchPanel(context, rgPath, [pwdString], initialQuery, title, getContextLines(), getAutoCloseWebview());
     }
   );
   context.subscriptions.push(disposableWebviewSearchCurrent);
@@ -819,7 +827,7 @@ export function registerWebviewSearchCommand(
       title = `LiveGrep: Level ${level} search in ${truncatePath(pwdString)}`;
     }
     
-    createWebviewSearchPanel(context, rgPath, [pwdString], initialQuery, title, getContextLines());
+    createWebviewSearchPanel(context, rgPath, [pwdString], initialQuery, title, getContextLines(), getAutoCloseWebview());
   };
 
   // Register webview commands for different levels

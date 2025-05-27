@@ -161,6 +161,12 @@
           "maximum": 100,
           "description": "Number of context lines to show before and after each match in webview search.",
           "scope": "resource"
+        },
+        "livegrep.autoCloseWebview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically close the webview search panel when a file is opened.",
+          "scope": "resource"
         }
       }
     }
